@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber-Pulse | Enterprise AI SOC</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        body { background-color: #050505; color: #ffffff; font-family: 'Share Tech Mono', monospace; overflow: hidden; margin: 0; padding: 0; }
+        h1, h2, h3, .brand-font { font-family: 'Orbitron', sans-serif; }
+        
+        .glass-panel { background: rgba(10, 10, 10, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(0, 243, 255, 0.1); box-shadow: 0 0 20px rgba(0, 243, 255, 0.05); }
+        
+        .text-cyan { color: #00F3FF; text-shadow: 0 0 5px rgba(0,243,255,0.4); }
+        .text-purple { color: #BC13FE; text-shadow: 0 0 5px rgba(188,19,254,0.4); }
+        .text-red { color: #FF003C; text-shadow: 0 0 5px rgba(255,0,60,0.4); }
+        .text-yellow { color: #FFD700; text-shadow: 0 0 5px rgba(255,215,0,0.4); }
+
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .live-dot { animation: blink 1.5s infinite; }
+        
+        .mitre-badge { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); padding: 2px 6px; border-radius: 4px; font-size: 9px; letter-spacing: 1px; color: #ccc;}
+        .modal-active { display: flex !important; }
+        
+        /* Streaming LLM text effect */
+        @keyframes streamText {
+            0% { opacity: 0; transform: translateY(5px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .llm-stream span {
+            display: inline-block;
+            opacity: 0;
+            animation: streamText 0.1s forwards;
+        }
+
+        .timeline-item { position: relative; padding-left: 15px; border-left: 2px solid #333; padding-bottom: 10px; }
+        .timeline-item::before { content: ''; position: absolute; left: -5px; top: 0; width: 8px; height: 8px; border-radius: 50%; background: #00F3FF; box-shadow: 0 0 5px #00F3FF; }
+        .timeline-item.critical::before { background: #FF003C; box-shadow: 0 0 5px #FF003C; }
+        .timeline-item.warning::before { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
+        .timeline-item.high::before { background: #BC13FE; box-shadow: 0 0 5px #BC13FE; }
+        .timeline-item.resolved::before { background: #10B981; box-shadow: 0 0 5px #10B981; }
+    </style>
+</head>
+<body class="relative h-screen w-screen">
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer" class="absolute inset-0 z-10 p-6 flex flex-col justify-between pointer-events-none">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-start relative z-20">
+            <div>
+                <h1 class="text-3xl font-black tracking-widest text-cyan mb-1">CYBER-PULSE // AI SOC</h1>
+                <p class="text-xs text-gray-400 tracking-widest">DECISION INTELLIGENCE PLATFORM</p>
+            </div>
+            <div class="glass-panel p-2 px-4 rounded flex items-center gap-4 border-[#00F3FF]/30 border-b-2">
+                <div class="text-right">
+                    <div class="text-[10px] text-gray-400">FINANCIAL LOSS PREVENTED</div>
+                    <div id="roi-counter" class="text-green-400 font-bold">$0.00</div>
+                </div>
+                <div class="h-6 w-px bg-gray-700"></div>
+                <div class="text-right mr-2">
+                    <div class="text-[10px] text-gray-400">TIME TO INSIGHT</div>
+                    <div class="text-cyan font-bold">0.8 SEC</div>
+                </div>
+                <div class="w-2 h-2 bg-cyan-400 rounded-full live-dot shadow-[0_0_8px_#00F3FF]"></div>
+            </div>
+        </header>
+
+        <!-- Center Top: Value Proposition Metric -->
+        <div class="absolute top-24 left-1/2 transform -translate-x-1/2 flex items-center gap-4 pointer-events-none z-10">
+            <div class="bg-black/60 backdrop-blur-md border border-gray-700 px-4 py-2 rounded text-center opacity-80">
+                <div class="text-[9px] text-gray-400 tracking-widest">TRADITIONAL SOC</div>
+                <div class="text-sm font-mono text-gray-300">2 MIN 45 SEC</div>
+            </div>
+            <div class="text-gray-600 font-bold text-sm">VS</div>
+            <div class="bg-cyan-900/20 backdrop-blur-md border border-cyan-500/50 px-4 py-2 rounded text-center shadow-[0_0_15px_rgba(0,243,255,0.2)]">
+                <div class="text-[9px] text-cyan font-bold tracking-widest">CYBER-PULSE AI</div>
+                <div class="text-sm font-mono text-cyan font-bold animate-pulse">0.8 SEC</div>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <main class="flex justify-between items-stretch h-full mt-6 gap-6 relative z-10">
+            
+            <!-- LEFT PANEL: AI Threat Analyst -->
+            <div class="glass-panel w-[420px] rounded-lg flex flex-col pointer-events-auto border-l-2 border-[#00F3FF] overflow-hidden">
+                <div class="bg-[#00F3FF]/10 p-3 border-b border-[#00F3FF]/20 flex justify-between items-center">
+                    <h2 class="text-cyan text-xs font-bold tracking-widest">AI ANALYST COPILOT</h2>
+                    <span class="text-[10px] bg-[#00F3FF]/20 text-cyan px-2 py-1 rounded">INGESTING TELEMETRY</span>
+                </div>
+                
+                <div id="ai-insight-container" class="p-4 flex-1 flex flex-col gap-4 overflow-y-auto custom-scroll">
+                    <div class="text-center text-gray-500 text-xs mt-10">
+                        Monitoring raw telemetry streams...<br>Awaiting threshold breaches.
+                    </div>
+                </div>
+            </div>
+
+            <!-- CENTER BOTTOM: Threat Timeline -->
+            <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[400px] pointer-events-auto">
+                <div class="glass-panel p-4 rounded-t-lg border-t-2 border-[#00F3FF]/50 max-h-[200px] overflow-y-auto custom-scroll">
+                    <h3 class="text-[10px] text-cyan font-bold tracking-widest mb-3">INCIDENT TIMELINE</h3>
+                    <div id="timeline-container" class="text-xs text-gray-300">
+                        <div class="text-gray-600 text-center italic mt-2">Awaiting security events...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: Metrics & Actions -->
+            <div class="w-80 flex flex-col gap-4 pointer-events-auto justify-end">
+                
+                <!-- Telemetry & Severity Panel -->
+                <div class="glass-panel p-4 rounded-lg border-t-2 border-[#BC13FE]">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-[10px] text-purple font-bold tracking-widest">THREAT SEVERITY SCORE</h3>
+                        <div id="score-display" class="text-xl font-bold text-gray-400">00</div>
+                    </div>
+                    <div class="w-full bg-gray-900 h-2 rounded mb-3 overflow-hidden">
+                        <div id="severity-bar" class="bg-gray-500 h-full transition-all duration-500" style="width: 5%;"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] text-gray-400 border-t border-gray-800 pt-2">
+                        <div>REQ/SEC (RPS): <span id="metric-rps" class="text-white">120</span></div>
+                        <div>FAILED LOGINS: <span id="metric-logins" class="text-white">4</span></div>
+                    </div>
+                </div>
+
+                <!-- Exec Panel -->
+                <div class="glass-panel p-4 rounded-lg flex flex-col gap-4">
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <h3 class="text-gray-500 text-[10px]">THREATS CONTAINED</h3>
+                            <div id="incident-counter" class="text-4xl brand-font text-cyan">0</div>
+                        </div>
+                        <div class="text-right">
+                            <h3 class="text-gray-500 text-[10px]">DEFENSE STATE</h3>
+                            <div id="defense-state" class="text-sm text-cyan tracking-widest">MONITORING</div>
+                        </div>
+                    </div>
+                    
+                    <button id="action-btn" onclick="openActionModal()" class="w-full py-2 bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed font-bold tracking-widest text-xs rounded transition-all" disabled>
+                        AWAITING AI RECOMMENDATION
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Action Modal -->
+    <div id="action-modal" class="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center pointer-events-auto">
+        <div class="glass-panel w-[500px] border-[#FF003C] border-2 rounded-lg p-6 shadow-[0_0_30px_rgba(255,0,60,0.2)]">
+            <h2 class="text-red font-bold text-lg mb-1 brand-font">EXECUTE COUNTERMEASURES</h2>
+            <p class="text-xs text-gray-400 mb-4">AI Recommended Protocols for <span id="modal-threat-type" class="text-white font-bold"></span></p>
+            
+            <div id="modal-recommendations" class="bg-black/50 border border-gray-800 rounded p-4 mb-4 flex flex-col gap-2 text-sm text-gray-300">
+                <!-- Recommendations -->
+            </div>
+            
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeModal()" class="flex-1 py-2 border border-gray-600 text-gray-400 hover:bg-gray-800 rounded text-xs tracking-widest">CANCEL</button>
+                <button onclick="executeDefense()" class="flex-1 py-2 bg-[#FF003C]/20 border border-[#FF003C] text-red hover:bg-[#FF003C] hover:text-white rounded text-xs tracking-widest font-bold transition-all">EXECUTE ALL</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. THREE.JS GLOBE & SPACE BACKGROUND SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.0025);
+        
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 25; camera.position.y = 5;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // Star Background
+        const starGeo = new THREE.BufferGeometry();
+        const starVertices = [];
+        for(let i=0; i<3000; i++) {
+            starVertices.push((Math.random() - 0.5) * 200, (Math.random() - 0.5) * 200, (Math.random() - 0.5) * 200);
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const starMat = new THREE.PointsMaterial({color: 0x888888, size: 0.15, transparent: true, opacity: 0.8});
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+
+        // Globe
+        const globeGeometry = new THREE.SphereGeometry(10, 32, 32);
+        const globeMaterial = new THREE.MeshBasicMaterial({ color: 0x00F3FF, wireframe: true, transparent: true, opacity: 0.35 });
+        const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+        scene.add(globe);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05; controls.enablePan = false;
+
+        let trajectories = [];
+        let isSimulating = true;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(isSimulating) globe.rotation.y += 0.001;
+            controls.update();
+
+            // Safe iteration for removal
+            for (let i = trajectories.length - 1; i >= 0; i--) {
+                let traj = trajectories[i];
+                traj.currentPoint += 0.015;
+                traj.geometry.setDrawRange(0, Math.floor(traj.currentPoint * 50));
+                
+                if(traj.node) {
+                    traj.node.scale.setScalar(1 + Math.sin(Date.now() * 0.008) * 0.5);
+                }
+
+                if (traj.currentPoint > 1) {
+                    traj.material.opacity -= 0.02;
+                    if(traj.node) traj.node.material.opacity -= 0.02;
+                }
+                
+                if (traj.material.opacity <= 0) {
+                    scene.remove(traj.line);
+                    if(traj.node) scene.remove(traj.node);
+                    trajectories.splice(i, 1);
+                }
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Multiple Target Regions
+        const targetRegions = [
+            { name: "Mumbai, AWS-ap-south-1", coord: new THREE.Vector3(10.2 * Math.cos(1.4) * Math.sin(1.1), 10.2 * Math.sin(1.4) * Math.sin(1.1), 10.2 * Math.cos(1.1)) },
+            { name: "Virginia, AWS-us-east-1", coord: new THREE.Vector3(10.2 * Math.cos(-1.3) * Math.sin(0.7), 10.2 * Math.sin(-1.3) * Math.sin(0.7), 10.2 * Math.cos(0.7)) },
+            { name: "Singapore, AWS-ap-southeast-1", coord: new THREE.Vector3(10.2 * Math.cos(1.8) * Math.sin(1.5), 10.2 * Math.sin(1.8) * Math.sin(1.5), 10.2 * Math.cos(1.5)) },
+            { name: "Frankfurt, AWS-eu-central-1", coord: new THREE.Vector3(10.2 * Math.cos(0.15) * Math.sin(0.8), 10.2 * Math.sin(0.15) * Math.sin(0.8), 10.2 * Math.cos(0.8)) }
+        ];
+
+        function getRandomSourceCoord() {
+            const phi = Math.acos( -1 + ( 2 * Math.random() ) );
+            const theta = Math.sqrt( Math.PI * 100 ) * phi;
+            return new THREE.Vector3( 10.2 * Math.cos(theta) * Math.sin(phi), 10.2 * Math.sin(theta) * Math.sin(phi), 10.2 * Math.cos(phi) );
+        }
+
+        // Attack Origin Nodes
+        function createTrajectory(color, targetCoord) {
+            const start = getRandomSourceCoord(); 
+            const end = targetCoord; 
+            const mid = start.clone().lerp(end, 0.5).normalize().multiplyScalar(15);
+            
+            const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+            const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(50));
+            const mat = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.8, linewidth: 2 });
+            const line = new THREE.Line(geo, mat);
+            geo.setDrawRange(0, 0); 
+            scene.add(line);
+
+            // Create visible glowing node at attack origin
+            const nodeGeo = new THREE.SphereGeometry(0.15, 16, 16);
+            const nodeMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
+            const node = new THREE.Mesh(nodeGeo, nodeMat);
+            node.position.copy(start);
+            scene.add(node);
+
+            trajectories.push({ line: line, node: node, geometry: geo, material: mat, currentPoint: 0 });
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- 2. TELEMETRY ENGINE & AI RULES ---
+        const locations = ["Frankfurt, Germany", "St. Petersburg, Russia", "Beijing, China", "Sao Paulo, Brazil", "New York, USA"];
+        
+        let totalPrevented = 0;
+        let moneySaved = 0;
+
+        function generateTelemetry() {
+            return {
+                rps: Math.floor(Math.random() * 8000), 
+                failedLogins: Math.floor(Math.random() * 500),
+                uniqueIPs: Math.floor(Math.random() * 200),
+                source: locations[Math.floor(Math.random() * locations.length)],
+                targetRegion: targetRegions[Math.floor(Math.random() * targetRegions.length)]
+            };
+        }
+
+        function analyzeTelemetry(telemetry) {
+            let score = (telemetry.rps * 0.005) + (telemetry.failedLogins * 0.1) + (telemetry.uniqueIPs * 0.1);
+            score = Math.min(Math.round(score), 100); 
+
+            let threat = null;
+
+            // Reduce threat frequency by only triggering if a random check passes (e.g., 30% chance for a threat even if thresholds are met)
+            if (Math.random() > 0.6) {
+                if (telemetry.rps > 4000) {
+                    threat = {
+                        type: "Distributed Denial of Service", mitre: "T1498", severity: "CRITICAL", color: 0xFF003C, hexColor: "text-red-500", styleClass: "critical",
+                        confidence: "94%",
+                        reasoning: `Analyzing telemetry data...<br>• Sudden spike detected: ${telemetry.rps} requests/sec.<br>• Source: Botnet cluster in ${telemetry.source}.<br>• Target: ${telemetry.targetRegion.name}.<br><span class='text-cyan mt-1 block'>Conclusion: Coordinated DDoS Campaign targeting core infrastructure.</span>`,
+                        prediction: `Likely attempting to overwhelm the ${telemetry.targetRegion.name} Gateway within 120s.`,
+                        actions: ["Enable Rate Limiting on API endpoints", "Null-route offending ASNs", "Activate Cloudflare Under Attack Mode"],
+                        target: telemetry.targetRegion.coord
+                    };
+                } else if (telemetry.failedLogins > 150) {
+                    threat = {
+                        type: "Credential Stuffing", mitre: "T1110", severity: "HIGH", color: 0xBC13FE, hexColor: "text-purple-500", styleClass: "high",
+                        confidence: "91%",
+                        reasoning: `Analyzing authentication logs...<br>• Detected ${telemetry.failedLogins} failed logins within 5s.<br>• Traffic originating from ${telemetry.uniqueIPs} unique IPs in ${telemetry.source}.<br><span class='text-cyan mt-1 block'>Conclusion: Automated Credential Stuffing Campaign.</span>`,
+                        prediction: "Precursor to widespread account takeover (ATO).",
+                        actions: ["Force CAPTCHA validation", "Implement aggressive IP banning", "Reset affected user sessions"],
+                        target: telemetry.targetRegion.coord
+                    };
+                } else if (telemetry.rps > 1000 && telemetry.uniqueIPs > 100) { // Slightly improved Port Scan rule
+                    threat = {
+                        type: "Aggressive Port Scan", mitre: "T1046", severity: "MEDIUM", color: 0xFFD700, hexColor: "text-yellow-500", styleClass: "warning",
+                        confidence: "88%",
+                        reasoning: `Analyzing edge firewall traffic...<br>• Sequential port knocking detected.<br>• Origin: Single actor in ${telemetry.source}.<br><span class='text-cyan mt-1 block'>Conclusion: Reconnaissance phase detected.</span>`,
+                        prediction: "Gathering infrastructure intelligence for future exploits.",
+                        actions: ["Drop packets at Edge Firewall", "Increase logging verbosity"],
+                        target: telemetry.targetRegion.coord
+                    };
+                }
+            }
+
+            return { score, threat, telemetry };
+        }
+
+        // --- 3. UI INTEGRATION ---
+        const aiContainer = document.getElementById('ai-insight-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const severityBar = document.getElementById('severity-bar');
+        const actionBtn = document.getElementById('action-btn');
+        const timelineContainer = document.getElementById('timeline-container');
+        let currentThreat = null;
+
+        function typeWriterEffect(element, htmlContent) {
+            element.innerHTML = '';
+            let wrapper = document.createElement('div');
+            wrapper.innerHTML = htmlContent;
+            
+            let charDelay = 15;
+            let currentDelay = 0;
+            
+            function processNode(node, targetEl) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    let chars = node.textContent.split('');
+                    chars.forEach(char => {
+                        let span = document.createElement('span');
+                        span.textContent = char;
+                        span.style.animationDelay = `${currentDelay}ms`;
+                        targetEl.appendChild(span);
+                        currentDelay += charDelay;
+                    });
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    let newEl = document.createElement(node.tagName);
+                    for(let i=0; i<node.attributes.length; i++) {
+                        newEl.setAttribute(node.attributes[i].name, node.attributes[i].value);
+                    }
+                    targetEl.appendChild(newEl);
+                    if(node.tagName.toLowerCase() === 'br') currentDelay += 100; 
+                    Array.from(node.childNodes).forEach(child => processNode(child, newEl));
+                }
+            }
+            
+            Array.from(wrapper.childNodes).forEach(child => processNode(child, element));
+        }
+
+        function addToTimeline(message, styleClass) {
+            if(timelineContainer.children[0] && timelineContainer.children[0].innerText.includes("Awaiting")) {
+                timelineContainer.innerHTML = '';
+            }
+            const time = new Date().toLocaleTimeString();
+            const item = document.createElement('div');
+            item.className = `timeline-item ${styleClass}`;
+            item.innerHTML = `<span class="text-gray-500 mr-2">${time}</span> ${message}`;
+            timelineContainer.prepend(item);
+            
+            if(timelineContainer.children.length > 5) {
+                timelineContainer.removeChild(timelineContainer.lastChild);
+            }
+        }
+
+        function processStream() {
+            if(!isSimulating) return;
+
+            const telemetry = generateTelemetry();
+            const analysis = analyzeTelemetry(telemetry);
+
+            document.getElementById('metric-rps').innerText = telemetry.rps;
+            document.getElementById('metric-logins').innerText = telemetry.failedLogins;
+            
+            scoreDisplay.innerText = analysis.score;
+            severityBar.style.width = analysis.score + "%";
+            
+            if(analysis.score > 75) { severityBar.className = "bg-red-500 h-full transition-all"; scoreDisplay.className = "text-xl font-bold text-red-500"; }
+            else if(analysis.score > 40) { severityBar.className = "bg-yellow-500 h-full transition-all"; scoreDisplay.className = "text-xl font-bold text-yellow-500"; }
+            else { severityBar.className = "bg-cyan-500 h-full transition-all"; scoreDisplay.className = "text-xl font-bold text-cyan-500"; }
+
+            if (analysis.threat) {
+                currentThreat = analysis.threat;
+                
+                if(aiContainer.children[0] && aiContainer.children[0].innerText.includes("Monitoring")) {
+                    aiContainer.innerHTML = '';
+                }
+
+                const reasoningId = `reasoning-${Date.now()}`;
+                
+                const card = document.createElement('div');
+                card.className = "bg-black/80 border border-gray-700 rounded p-4 text-xs mb-3 shadow-lg relative overflow-hidden";
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-1 h-full bg-cyan-500"></div>
+                    <div class="flex justify-between items-center mb-2 pb-1 border-b border-gray-800">
+                        <div>
+                            <span class="${currentThreat.hexColor} font-bold mr-2">[${currentThreat.type}]</span>
+                            <span class="mitre-badge">${currentThreat.mitre}</span>
+                        </div>
+                        <span class="text-gray-500">${new Date().toLocaleTimeString()}</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <span class="text-gray-500 text-[9px] block mb-1">AI ANALYST SUMMARY</span>
+                        <div class="text-gray-300 llm-stream leading-relaxed" id="${reasoningId}"></div>
+                    </div>
+
+                    <!-- Prediction Sub-Card -->
+                    <div class="mt-2 bg-gray-900/80 border border-[#BC13FE]/30 rounded p-2 flex justify-between items-center">
+                        <div>
+                            <span class="text-purple-400 text-[9px] font-bold tracking-widest block">NEXT LIKELY ACTION</span>
+                            <span class="text-white text-[11px]">${currentThreat.prediction}</span>
+                        </div>
+                        <div class="text-right pl-2 border-l border-gray-700">
+                            <span class="text-gray-500 text-[9px] block">CONFIDENCE</span>
+                            <span class="text-cyan text-xs font-bold">${currentThreat.confidence}</span>
+                        </div>
+                    </div>
+                `;
+                
+                aiContainer.prepend(card);
+                if(aiContainer.children.length > 2) aiContainer.removeChild(aiContainer.lastChild);
+
+                typeWriterEffect(document.getElementById(reasoningId), currentThreat.reasoning);
+                addToTimeline(`Detected ${currentThreat.type} from ${telemetry.source}`, currentThreat.styleClass);
+
+                actionBtn.disabled = false;
+                actionBtn.className = "w-full py-3 bg-[#FF003C]/20 border border-[#FF003C] text-red hover:bg-[#FF003C] hover:text-white transition-all font-bold tracking-widest text-xs rounded shadow-[0_0_15px_rgba(255,0,60,0.3)] animate-pulse";
+                actionBtn.innerText = "REVIEW AI RECOMMENDATIONS";
+
+                let linesToDraw = currentThreat.severity === "CRITICAL" ? 5 : (currentThreat.severity === "HIGH" ? 3 : 1);
+                for(let i=0; i<linesToDraw; i++) setTimeout(() => createTrajectory(currentThreat.color, currentThreat.target), i * 200);
+            }
+        }
+
+        // --- 4. ACTION MODAL ---
+        const modal = document.getElementById('action-modal');
+        const modalRecs = document.getElementById('modal-recommendations');
+
+        function openActionModal() {
+            if(!currentThreat) return;
+            modal.classList.add('modal-active');
+            document.getElementById('modal-threat-type').innerText = currentThreat.type;
+            
+            modalRecs.innerHTML = '';
+            currentThreat.actions.forEach(action => {
+                modalRecs.innerHTML += `
+                    <label class="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-800 rounded">
+                        <input type="checkbox" checked class="form-checkbox text-red-500 bg-black border-gray-600 rounded">
+                        <span>${action}</span>
+                    </label>
+                `;
+            });
+        }
+
+        function closeModal() { modal.classList.remove('modal-active'); }
+
+        function executeDefense() {
+            closeModal();
+            isSimulating = false; 
+            
+            totalPrevented++;
+            moneySaved += Math.floor(Math.random() * 40000) + 10000;
+            
+            document.getElementById('incident-counter').innerText = totalPrevented;
+            document.getElementById('roi-counter').innerText = `$${moneySaved.toLocaleString()}`;
+            
+            document.getElementById('defense-state').innerText = "THREAT CONTAINED";
+            document.getElementById('defense-state').className = "text-sm text-green-400 tracking-widest animate-pulse";
+            
+            actionBtn.disabled = true;
+            actionBtn.className = "w-full py-3 bg-green-900/30 border border-green-500 text-green-400 font-bold tracking-widest text-xs rounded";
+            actionBtn.innerText = "PROTOCOL EXECUTED";
+            
+            severityBar.style.width = "0%";
+            scoreDisplay.innerText = "00";
+            
+            addToTimeline(`${currentThreat.type} neutralized via AI Protocols.`, "resolved");
+            
+            setTimeout(() => {
+                isSimulating = true;
+                document.getElementById('defense-state').innerText = "MONITORING";
+                document.getElementById('defense-state').className = "text-sm text-cyan tracking-widest";
+                actionBtn.innerText = "AWAITING AI RECOMMENDATION";
+                actionBtn.className = "w-full py-2 bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed font-bold tracking-widest text-xs rounded transition-all";
+            }, 5000);
+        }
+
+        setInterval(processStream, 4000); // Slower interval for better pacing
+
+    </script>
+</body>
+</html>
